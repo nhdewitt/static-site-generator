@@ -1,6 +1,7 @@
 import unittest
 
 from htmlnode import HTMLNode, LeafNode, ParentNode
+from textnode import TextNode
 
 class TestHTMLNode(unittest.TestCase):
     def test_tag(self):
@@ -164,8 +165,6 @@ class TestParentNode(unittest.TestCase):
             "</div>"
         )
         self.assertEqual(parent_div.to_html(), expected_html)
-
-
 
 if __name__ == "__main__":
     unittest.main()
