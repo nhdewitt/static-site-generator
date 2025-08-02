@@ -49,7 +49,7 @@ Then visit `http://localhost:8888`
 
 ## Development
 
-This generator is build with Python as part of the `boot.dev` Backend Path (the Guided Project **Build a Static Site Generator in Python**) and includes:
+This generator is build with Python as part of the [Boot Dev](https://boot.dev) Backend Path (the Guided Project **Build a Static Site Generator in Python**) and includes:
 
 - Markdown parsing and HTML generation
 - Custom text node system for inline formatting
