@@ -4,7 +4,7 @@ from markdown_to_html_node import markdown_to_html_node
 import os
 
 
-def generate_page(from_path: str, template_path: str, dest_path: str):
+def generate_page(from_path: str, template_path: str, dest_path: str, base_path: str):
     print(f"Generating page from {from_path} to {dest_path} using {template_path}")
     dest_dir = os.path.dirname(dest_path)
     
@@ -18,6 +18,8 @@ def generate_page(from_path: str, template_path: str, dest_path: str):
 
     template_file = template_file.replace("{{ Title }}", title)
     template_file = template_file.replace("{{ Content }}", html)
+    template_file = template_file.replace('href="/', f'href="{base_path}')
+    template_file = template_file.replace('src="/', f'src="{base_path}')
 
     if dest_dir and not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
