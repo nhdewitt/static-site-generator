@@ -1,8 +1,9 @@
-from htmlnode import HTMLNode, ParentNode
+from htmlnode import HTMLNode, ParentNode, LeafNode
 from textnode import TextNode, TextType, text_node_to_html_node
 from blocktype import BlockType, block_to_block_type
 from markdown_split import markdown_to_blocks, text_to_textnodes
 import textwrap
+import re
 
 def markdown_to_html_node(markdown: str) -> ParentNode:
     blocks = markdown_to_blocks(markdown)
@@ -27,6 +28,12 @@ def block_to_html_node(block: str) -> BlockType:
             return ulist_to_html_node(block)
         case BlockType.QUOTE:
             return quote_to_html_node(block)
+        case BlockType.HORIZONTAL_RULE:
+            return horizontal_rule_to_html_node(block)
+        case BlockType.TASK_LIST:
+            return task_list_to_html_node(block)
+        case BlockType.TABLE:
+            return table_to_html_node(block)
         case _:
             raise ValueError("invalid BlockType:", block)
         
@@ -77,7 +84,11 @@ def ulist_to_html_node(block: str) -> ParentNode:
     items = block.split("\n")
     html_items = []
     for item in items:
-        text = item[2:]
+        # Remove the list marker (-, *, or +) and the following space
+        if item.startswith(("- ", "* ", "+ ")):
+            text = item[2:]
+        else:
+            text = item
         children = text_to_children(text)
         html_items.append(ParentNode("li", children))
     return ParentNode("ul", html_items)
@@ -92,3 +103,80 @@ def quote_to_html_node(block: str) -> ParentNode:
     content = " ".join(new_lines)
     children = text_to_children(content)
     return ParentNode("blockquote", children)
+
+def horizontal_rule_to_html_node(block: str) -> LeafNode:
+    return LeafNode("hr", "")
+
+def task_list_to_html_node(block: str) -> ParentNode:
+    items = block.split("\n")
+    html_items = []
+    task_pattern = re.compile(r'^([-*+])\s+\[([ xX])\]\s+(.+)$')
+
+    for item in items:
+        match = task_pattern.match(item)
+        if match:
+            checkbox_state = match.group(2)
+            text = match.group(3)
+
+            # Create checkbox input element
+            checked = checkbox_state.lower() == 'x'
+            checkbox_props = {"type": "checkbox", "disabled": ""}
+            if checked:
+                checkbox_props["checked"] = ""
+
+            checkbox = LeafNode("input", "", checkbox_props)
+
+            # Create text nodes for the rest of the content
+            text_children = text_to_children(text)
+
+            # Combine checkbox and text
+            li_children = [checkbox] + text_children
+            html_items.append(ParentNode("li", li_children))
+
+    return ParentNode("ul", html_items)
+
+def table_to_html_node(block: str) -> ParentNode:
+    lines = block.splitlines()
+    if len(lines) < 2:
+        raise ValueError("Table must have at least 2 lines")
+
+    # Parse header row
+    header_cells = [cell.strip() for cell in lines[0].split('|') if cell.strip()]
+
+    # Parse separator row for alignment
+    separator_cells = [cell.strip() for cell in lines[1].split('|') if cell.strip()]
+    alignments = []
+    for cell in separator_cells:
+        if cell.startswith(':') and cell.endswith(':'):
+            alignments.append('center')
+        elif cell.endswith(':'):
+            alignments.append('right')
+        else:
+            alignments.append('left')
+
+    # Create table header
+    thead_cells = []
+    for i, header in enumerate(header_cells):
+        align = alignments[i] if i < len(alignments) else 'left'
+        props = {"style": f"text-align: {align}"} if align != 'left' else None
+        children = text_to_children(header)
+        thead_cells.append(ParentNode("th", children, props))
+
+    thead_row = ParentNode("tr", thead_cells)
+    thead = ParentNode("thead", [thead_row])
+
+    # Create table body
+    tbody_rows = []
+    for line in lines[2:]:
+        data_cells = [cell.strip() for cell in line.split('|') if cell.strip()]
+        row_cells = []
+        for i, cell in enumerate(data_cells):
+            align = alignments[i] if i < len(alignments) else 'left'
+            props = {"style": f"text-align: {align}"} if align != 'left' else None
+            children = text_to_children(cell)
+            row_cells.append(ParentNode("td", children, props))
+        tbody_rows.append(ParentNode("tr", row_cells))
+
+    tbody = ParentNode("tbody", tbody_rows)
+
+    return ParentNode("table", [thead, tbody])
