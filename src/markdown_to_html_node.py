@@ -1,7 +1,7 @@
 from htmlnode import HTMLNode, ParentNode, LeafNode
 from textnode import TextNode, TextType, text_node_to_html_node
 from blocktype import BlockType, block_to_block_type
-from markdown_split import markdown_to_blocks, text_to_textnodes
+from markdown_split import markdown_to_blocks, text_to_textnodes, LINE_BREAK_MARKER
 import textwrap
 import re
 
@@ -47,7 +47,24 @@ def text_to_children(text: str) -> list[HTMLNode]:
 
 def paragraph_to_html_node(block: str) -> ParentNode:
     lines = block.split("\n")
-    paragraph = " ".join(lines)
+    # Detect hard line breaks (two spaces or backslash at end of line)
+    processed_lines = []
+    for i, line in enumerate(lines):
+        # Check if this line (except the last one) ends with a line break marker
+        if i < len(lines) - 1:  # Not the last line
+            if line.endswith("  ") or line.endswith("\\"):
+                # Remove the line break marker and add our special marker
+                if line.endswith("\\"):
+                    line = line[:-1]  # Remove backslash
+                elif line.endswith("  "):
+                    line = line.rstrip()  # Remove trailing spaces
+                processed_lines.append(line + LINE_BREAK_MARKER)
+            else:
+                processed_lines.append(line)
+        else:
+            processed_lines.append(line)
+
+    paragraph = " ".join(processed_lines)
     children = text_to_children(paragraph)
     return ParentNode("p", children)
 

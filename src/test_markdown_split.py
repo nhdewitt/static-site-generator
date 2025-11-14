@@ -473,5 +473,85 @@ the **same** even with inline stuff
             "<div><pre><code>This is text that _should_ remain\nthe **same** even with inline stuff\n</code></pre></div>",
         )
 
+class TestNewInlineFeatures(unittest.TestCase):
+    def test_strikethrough(self):
+        md = "This is ~~strikethrough~~ text"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertEqual(html, "<div><p>This is <s>strikethrough</s> text</p></div>")
+
+    def test_strikethrough_multiple(self):
+        md = "~~First~~ and ~~second~~ strikethrough"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertEqual(html, "<div><p><s>First</s> and <s>second</s> strikethrough</p></div>")
+
+    def test_escape_asterisk(self):
+        md = r"This is \*not italic\*"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertEqual(html, "<div><p>This is *not italic*</p></div>")
+
+    def test_escape_underscore(self):
+        md = r"This is \_not italic\_"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertEqual(html, "<div><p>This is _not italic_</p></div>")
+
+    def test_escape_tilde(self):
+        md = r"This is \~\~not strikethrough\~\~"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertEqual(html, "<div><p>This is ~~not strikethrough~~</p></div>")
+
+    def test_escape_backslash(self):
+        md = r"This is a literal backslash: \\"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertIn("\\", html)
+
+    def test_hard_line_break_two_spaces(self):
+        md = "Line one  \nLine two"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertIn("<br></br>", html)
+        self.assertIn("Line one", html)
+        self.assertIn("Line two", html)
+
+    def test_hard_line_break_backslash(self):
+        md = "Line one\\\nLine two"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertIn("<br></br>", html)
+        self.assertIn("Line one", html)
+        self.assertIn("Line two", html)
+
+    def test_autolink_https(self):
+        md = "Check out https://example.com for more"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertIn('<a href="https://example.com">https://example.com</a>', html)
+
+    def test_autolink_http(self):
+        md = "Visit http://test.org today"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertIn('<a href="http://test.org">http://test.org</a>', html)
+
+    def test_autolink_multiple(self):
+        md = "See https://example.com and http://test.org"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertIn('<a href="https://example.com">https://example.com</a>', html)
+        self.assertIn('<a href="http://test.org">http://test.org</a>', html)
+
+    def test_explicit_link_takes_precedence(self):
+        md = "[Click here](https://example.com) for more"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertIn('<a href="https://example.com">Click here</a>', html)
+        # Should not have the URL as text since it's in an explicit link
+        self.assertEqual(html.count('<a href="https://example.com">'), 1)
+
 if __name__ == "__main__":
     unittest.main()

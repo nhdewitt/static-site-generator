@@ -8,6 +8,8 @@ class TextType(Enum):
     CODE = "code"
     LINK = "link"
     IMAGE = "image"
+    STRIKETHROUGH = "strikethrough"
+    LINE_BREAK = "line_break"
 
 class TextNode:
     def __init__(self, text: str, text_type: TextType, url: str = None):
@@ -49,5 +51,9 @@ def text_node_to_html_node(text_node: "TextNode") -> "HTMLNode":
             "src": text_node.url,
             "alt": text_node.text,
         })
+        case TextType.STRIKETHROUGH:
+            return LeafNode("s", text_node.text)
+        case TextType.LINE_BREAK:
+            return LeafNode("br", "")
         case _:
             raise ValueError("invalid TextType")
