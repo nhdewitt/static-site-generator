@@ -48,6 +48,20 @@ class TestBlockToBlockType(unittest.TestCase):
             BlockType.UNORDERED_LIST
         )
 
+    def test_unordered_list_asterisk(self):
+        block = "* item one\n* item two\n* item three"
+        self.assertEqual(
+            block_to_block_type(block),
+            BlockType.UNORDERED_LIST
+        )
+
+    def test_unordered_list_plus(self):
+        block = "+ item one\n+ item two\n+ item three"
+        self.assertEqual(
+            block_to_block_type(block),
+            BlockType.UNORDERED_LIST
+        )
+
     def test_ordered_list_multiline(self):
         block = "1. first\n2. second\n10. tenth"
         self.assertEqual(
@@ -81,6 +95,90 @@ class TestBlockToBlockType(unittest.TestCase):
         self.assertEqual(
             block_to_block_type(block),
             BlockType.HEADING
+        )
+
+    def test_horizontal_rule_dashes(self):
+        block = "---"
+        self.assertEqual(
+            block_to_block_type(block),
+            BlockType.HORIZONTAL_RULE
+        )
+
+    def test_horizontal_rule_asterisks(self):
+        block = "***"
+        self.assertEqual(
+            block_to_block_type(block),
+            BlockType.HORIZONTAL_RULE
+        )
+
+    def test_horizontal_rule_underscores(self):
+        block = "___"
+        self.assertEqual(
+            block_to_block_type(block),
+            BlockType.HORIZONTAL_RULE
+        )
+
+    def test_horizontal_rule_with_spaces(self):
+        block = "- - -"
+        self.assertEqual(
+            block_to_block_type(block),
+            BlockType.HORIZONTAL_RULE
+        )
+
+    def test_horizontal_rule_many_chars(self):
+        block = "-----"
+        self.assertEqual(
+            block_to_block_type(block),
+            BlockType.HORIZONTAL_RULE
+        )
+
+    def test_task_list_unchecked(self):
+        block = "- [ ] Task one\n- [ ] Task two"
+        self.assertEqual(
+            block_to_block_type(block),
+            BlockType.TASK_LIST
+        )
+
+    def test_task_list_checked(self):
+        block = "- [x] Completed task"
+        self.assertEqual(
+            block_to_block_type(block),
+            BlockType.TASK_LIST
+        )
+
+    def test_task_list_mixed(self):
+        block = "- [ ] Todo\n- [x] Done\n- [ ] Another todo"
+        self.assertEqual(
+            block_to_block_type(block),
+            BlockType.TASK_LIST
+        )
+
+    def test_task_list_uppercase_x(self):
+        block = "- [X] Completed with uppercase"
+        self.assertEqual(
+            block_to_block_type(block),
+            BlockType.TASK_LIST
+        )
+
+    def test_table_basic(self):
+        block = "| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |"
+        self.assertEqual(
+            block_to_block_type(block),
+            BlockType.TABLE
+        )
+
+    def test_table_with_alignment(self):
+        block = "| Left | Center | Right |\n|:-----|:------:|------:|\n| L    | C      | R     |"
+        self.assertEqual(
+            block_to_block_type(block),
+            BlockType.TABLE
+        )
+
+    def test_table_multiple_rows(self):
+        block = "| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |"
+        self.assertEqual(
+            block_to_block_type(block),
+            BlockType.TABLE
         )
 
 if __name__ == "__main__":
