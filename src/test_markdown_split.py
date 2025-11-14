@@ -553,5 +553,63 @@ class TestNewInlineFeatures(unittest.TestCase):
         # Should not have the URL as text since it's in an explicit link
         self.assertEqual(html.count('<a href="https://example.com">'), 1)
 
+class TestAdvancedFeatures(unittest.TestCase):
+    def test_code_block_with_language(self):
+        md = "```python\ndef hello():\n    print('world')\n```"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertIn('class="language-python"', html)
+        self.assertIn("def hello():", html)
+
+    def test_code_block_without_language(self):
+        md = "```\nplain code\n```"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertNotIn('class=', html)
+        self.assertIn("plain code", html)
+
+    def test_reference_link_explicit(self):
+        md = "This is a [link][ref].\n\n[ref]: https://example.com"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertIn('<a href="https://example.com">link</a>', html)
+
+    def test_reference_link_implicit(self):
+        md = "This is a [link][].\n\n[link]: https://example.com"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertIn('<a href="https://example.com">link</a>', html)
+
+    def test_multiple_reference_links(self):
+        md = "[first][1] and [second][2].\n\n[1]: https://one.com\n[2]: https://two.com"
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertIn('<a href="https://one.com">first</a>', html)
+        self.assertIn('<a href="https://two.com">second</a>', html)
+
+    def test_footnote_reference(self):
+        md = "Text with footnote[^1].\n\n[^1]: Footnote content."
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertIn('<sup>', html)
+        self.assertIn("href='#fn-1'", html)
+
+    def test_footnote_section(self):
+        md = "Text[^1].\n\n[^1]: Content."
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertIn('class="footnotes"', html)
+        self.assertIn('<h2>Footnotes</h2>', html)
+        self.assertIn('id="fn-1"', html)
+
+    def test_multiple_footnotes(self):
+        md = "First[^1] and second[^2].\n\n[^1]: First note.\n[^2]: Second note."
+        node = markdown_to_html_node(md)
+        html = node.to_html()
+        self.assertIn("First note", html)
+        self.assertIn("Second note", html)
+        self.assertIn("href='#fn-1'", html)
+        self.assertIn("href='#fn-2'", html)
+
 if __name__ == "__main__":
     unittest.main()
