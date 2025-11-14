@@ -10,6 +10,7 @@ class TextType(Enum):
     IMAGE = "image"
     STRIKETHROUGH = "strikethrough"
     LINE_BREAK = "line_break"
+    FOOTNOTE_REF = "footnote_ref"
 
 class TextNode:
     def __init__(self, text: str, text_type: TextType, url: str = None):
@@ -55,5 +56,11 @@ def text_node_to_html_node(text_node: "TextNode") -> "HTMLNode":
             return LeafNode("s", text_node.text)
         case TextType.LINE_BREAK:
             return LeafNode("br", "")
+        case TextType.FOOTNOTE_REF:
+            # Create superscript link to footnote
+            sup_props = {"id": f"fnref-{text_node.text}"}
+            link_props = {"href": f"#fn-{text_node.text}"}
+            link = LeafNode("a", text_node.text, link_props)
+            return LeafNode("sup", f"[<a href='#fn-{text_node.text}'>{text_node.text}</a>]", None)
         case _:
             raise ValueError("invalid TextType")

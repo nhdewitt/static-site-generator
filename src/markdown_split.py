@@ -3,6 +3,15 @@ from exceptions import InvalidMarkdownError
 from markdown_extract import extract_markdown_images, extract_markdown_links
 import re
 
+# Global reference to link definitions (set by markdown_to_html_node)
+def get_link_definitions():
+    """Get link definitions from markdown_to_html_node module"""
+    try:
+        from markdown_to_html_node import _link_definitions
+        return _link_definitions
+    except ImportError:
+        return {}
+
 # Escape character handling
 ESCAPE_CHARS = ['\\', '*', '_', '~', '`', '[', ']', '(', ')', '!', '#', '-', '+', '.', '|']
 LINE_BREAK_MARKER = chr(0xE0FF)  # Special marker for line breaks
@@ -84,13 +93,47 @@ def split_nodes_image(old_nodes: list["TextNode"]) -> list[TextNode]:
                 node_list.append(TextNode(text, TextType.TEXT))
     return node_list
 
+def expand_reference_links(text: str) -> str:
+    """
+    Expand reference-style links to inline links.
+    [text][ref] -> [text](url)
+    [text][] -> [text](url) (implicit reference, uses text as ref id)
+    """
+    link_defs = get_link_definitions()
+    if not link_defs:
+        return text
+
+    # Pattern for reference-style links: [text][ref] or [text][]
+    ref_pattern = re.compile(r'\[([^\]]+)\]\[([^\]]*)\]')
+
+    def replace_ref(match):
+        link_text = match.group(1)
+        ref_id = match.group(2) if match.group(2) else link_text  # Use text as ref if empty
+        ref_id = ref_id.lower().strip()
+
+        if ref_id in link_defs:
+            url, title = link_defs[ref_id]
+            return f'[{link_text}]({url})'
+        else:
+            # If reference not found, leave as-is
+            return match.group(0)
+
+    return ref_pattern.sub(replace_ref, text)
+
 def split_nodes_link(old_nodes: list["TextNode"]) -> list[TextNode]:
     node_list = []
     for node in old_nodes:
-        text = node.text
+        # Only process TEXT nodes
+        if node.text_type != TextType.TEXT:
+            node_list.append(node)
+            continue
+
+        # First expand reference-style links
+        text = expand_reference_links(node.text)
+
         matches = extract_markdown_links(text)
         if len(matches) == 0:
-            node_list.append(node)
+            node_list.append(TextNode(text, TextType.TEXT))
         else:
             for anchor_text, url in matches:
                 inner_nodes = []
@@ -161,6 +204,40 @@ def split_nodes_autolink(old_nodes: list["TextNode"]) -> list[TextNode]:
 
     return node_list
 
+def split_nodes_footnote(old_nodes: list["TextNode"]) -> list[TextNode]:
+    """Convert footnote references like [^1] to footnote nodes"""
+    # Pattern to match footnote references: [^id]
+    footnote_pattern = re.compile(r'\[\^([^\]]+)\]')
+
+    node_list = []
+    for node in old_nodes:
+        # Only process TEXT nodes
+        if node.text_type != TextType.TEXT:
+            node_list.append(node)
+            continue
+
+        text = node.text
+        matches = footnote_pattern.findall(text)
+
+        if not matches:
+            node_list.append(node)
+            continue
+
+        # Split text by footnote references
+        for fn_id in matches:
+            fn_marker = f'[^{fn_id}]'
+            parts = text.split(fn_marker, 1)
+            if parts[0]:
+                node_list.append(TextNode(parts[0], TextType.TEXT))
+            node_list.append(TextNode(fn_id, TextType.FOOTNOTE_REF))
+            text = parts[1] if len(parts) > 1 else ""
+
+        # Add any remaining text
+        if text:
+            node_list.append(TextNode(text, TextType.TEXT))
+
+    return node_list
+
 def text_to_textnodes(text: str) -> list[TextNode]:
     # Escape special characters first
     text = escape_markdown(text)
@@ -168,6 +245,7 @@ def text_to_textnodes(text: str) -> list[TextNode]:
     nodes = [TextNode(text, TextType.TEXT)]
 
     nodes = split_nodes_line_break(nodes)
+    nodes = split_nodes_footnote(nodes)  # Process footnotes before other formatting
     nodes = split_nodes_delimiter(nodes, "**", TextType.BOLD)
     nodes = split_nodes_delimiter(nodes, "~~", TextType.STRIKETHROUGH)
     nodes = split_nodes_delimiter(nodes, "_", TextType.ITALIC)

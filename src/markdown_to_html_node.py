@@ -2,16 +2,65 @@ from htmlnode import HTMLNode, ParentNode, LeafNode
 from textnode import TextNode, TextType, text_node_to_html_node
 from blocktype import BlockType, block_to_block_type
 from markdown_split import markdown_to_blocks, text_to_textnodes, LINE_BREAK_MARKER
+from markdown_extract import (extract_link_definitions, remove_link_definitions,
+                               extract_footnote_definitions, remove_footnote_definitions)
 import textwrap
 import re
 
+# Global storage for link reference definitions (set during markdown processing)
+_link_definitions = {}
+_footnote_definitions = {}
+
 def markdown_to_html_node(markdown: str) -> ParentNode:
+    global _link_definitions, _footnote_definitions
+
+    # Extract and remove link reference definitions
+    _link_definitions = extract_link_definitions(markdown)
+    markdown = remove_link_definitions(markdown)
+
+    # Extract and remove footnote definitions
+    _footnote_definitions = extract_footnote_definitions(markdown)
+    markdown = remove_footnote_definitions(markdown)
+
     blocks = markdown_to_blocks(markdown)
     children = []
     for block in blocks:
         html_node = block_to_html_node(block)
         children.append(html_node)
+
+    # Add footnotes section if there are any
+    if _footnote_definitions:
+        footnotes_node = create_footnotes_section(_footnote_definitions)
+        children.append(footnotes_node)
+
+    # Clear definitions after processing
+    _link_definitions = {}
+    _footnote_definitions = {}
+
     return ParentNode("div", children, None)
+
+def create_footnotes_section(footnotes: dict[str, str]) -> ParentNode:
+    """Create a footnotes section at the end of the document"""
+    footnote_items = []
+
+    # Sort footnotes by ID
+    for fn_id in sorted(footnotes.keys()):
+        content = footnotes[fn_id]
+
+        # Create proper HTML nodes for the footnote
+        backref_link = LeafNode("a", fn_id, {"href": f"#fnref-{fn_id}"})
+        separator = LeafNode(None, ": ")
+        content_node = LeafNode(None, content)
+
+        # Create list item with these children
+        li_children = [backref_link, separator, content_node]
+        footnote_items.append(ParentNode("li", li_children, {"id": f"fn-{fn_id}"}))
+
+    footnotes_list = ParentNode("ol", footnote_items)
+    hr = LeafNode("hr", "")
+    heading = LeafNode("h2", "Footnotes")
+
+    return ParentNode("div", [hr, heading, footnotes_list], {"class": "footnotes"})
 
 def block_to_html_node(block: str) -> BlockType:
     block_type = block_to_block_type(block)
@@ -79,13 +128,35 @@ def heading_to_html_node(block: str) -> ParentNode:
 def code_to_html_node(block: str) -> ParentNode:
     if not block.startswith("```") or not block.endswith("```"):
         raise ValueError("Invalid code block:", block)
-    text = block.strip("```").strip("\n")
+
+    # Remove opening ``` and ending ```
+    content = block[3:-3]
+
+    # Check if first line contains language identifier
+    lines = content.split("\n", 1)
+    first_line = lines[0].strip()
+
+    language = None
+    code_text = content
+
+    # If first line is a valid language identifier (alphanumeric + dashes/underscores)
+    if first_line and first_line.replace("-", "").replace("_", "").isalnum():
+        language = first_line
+        # Remove the language line from the code
+        code_text = lines[1] if len(lines) > 1 else ""
+
+    # Process the code text
+    text = code_text.strip("\n")
     text = textwrap.dedent(text)
     if not text.endswith("\n"):
         text += "\n"
+
     raw_text = TextNode(text, TextType.TEXT)
     child = text_node_to_html_node(raw_text)
-    code = ParentNode("code", [child])
+
+    # Add language class if specified (follows Prism.js/highlight.js convention)
+    code_props = {"class": f"language-{language}"} if language else None
+    code = ParentNode("code", [child], code_props)
     return ParentNode("pre", [code])
 
 def olist_to_html_node(block: str) -> ParentNode:
